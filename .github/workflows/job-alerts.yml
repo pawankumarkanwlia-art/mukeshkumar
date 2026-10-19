@@ -1,0 +1,43 @@
+name: Sarkari Job Telegram Alerts
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron uses UTC. 03:30 UTC = 09:00 IST.
+    - cron: "30 3,9,15 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  send-job-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run job alert bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python job_bot.py
+
+      - name: Save sent-job history
+        run: |
+          if [[ -n "$(git status --porcelain seen_jobs.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add seen_jobs.json
+            git commit -m "Update sent job history [skip ci]"
+            git push
+          fi
